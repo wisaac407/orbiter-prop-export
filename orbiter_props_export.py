@@ -7,6 +7,7 @@ from mathutils import Vector, Matrix
 
 from bpy_extras.io_utils import ExportHelper
 from bpy.props import (PointerProperty,
+                       BoolProperty,
                        CollectionProperty,
                        EnumProperty,
                        StringProperty,
@@ -198,6 +199,35 @@ class OrbiterRocketGroupMove(Operator):
         return {'FINISHED'}
 
 
+class OrbiterRocketGroupSelect(Operator):
+    """Select rocket group objects"""
+    bl_idname = "orbiter.rocket_group_select"
+    bl_label = "Select Rocket Group"
+
+    deselect = BoolProperty(
+        name="Deselect",
+        default=False
+    )
+
+    @classmethod
+    def poll(cls, context):
+        orbiter = context.scene.orbiter
+        index = orbiter.rocket_groups_active_index
+        groups = len(orbiter.rocket_groups)
+        group = orbiter.rocket_groups[index]
+
+        return (groups > index and index >= 0) and group.group in bpy.data.groups
+
+    def execute(self, context):
+        orbiter = context.scene.orbiter
+
+        group = bpy.data.groups[orbiter.rocket_groups[orbiter.rocket_groups_active_index].name]
+        for obj in group.objects:
+            obj.select = not self.deselect
+
+        return {'FINISHED'}
+
+
 class OrbiterRocketGroup(PropertyGroup):
     group = StringProperty(name="Rocket Group",
                            description="Group to export as a rocket group")
@@ -224,6 +254,17 @@ class OrbiterProperties(PropertyGroup):
     )
 
 
+class OrbiterRocketGroupSpecialsMenu(bpy.types.Menu):
+    bl_label = "Rocket Group Specials"
+    bl_idname = "ORBITER_MT_rocket_group_specials"
+
+    def draw(self, context):
+        layout = self.layout
+
+        layout.operator("orbiter.rocket_group_select").deselect = False
+        layout.operator("orbiter.rocket_group_select", text="Deselect Rocket Group").deselect = True
+
+
 class ORBITER_UL_rockets(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
         layout.prop(item, "name", emboss=False, text="")
@@ -244,10 +285,10 @@ class OrbiterToolPanel(Panel):
 
         layout.prop_search(orbiter, "ccage", bpy.data, "objects")
         rg = None
-        rows = 1
+        rows = 2
         if len(orbiter.rocket_groups) > 0 and orbiter.rocket_groups_active_index < len(orbiter.rocket_groups):
             rg = orbiter.rocket_groups[orbiter.rocket_groups_active_index]
-            rows = 3
+            rows = 4
 
         row = layout.row()
         row.template_list("ORBITER_UL_rockets", "", orbiter, "rocket_groups", orbiter, "rocket_groups_active_index",
@@ -256,6 +297,7 @@ class OrbiterToolPanel(Panel):
         col = row.column(align=True)
         col.operator("orbiter.rocket_group_add", icon='ZOOMIN', text="")
         col.operator("orbiter.rocket_group_remove", icon='ZOOMOUT', text="")
+        col.menu("ORBITER_MT_rocket_group_specials", icon='DOWNARROW_HLT', text="")
 
         if rg:
             col.separator()
