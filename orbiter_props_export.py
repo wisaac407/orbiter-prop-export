@@ -19,12 +19,22 @@ _HEADER_FILE_TEMPLATE = """
 #ifndef _{defname}_H_
 #define _{defname}_H_
 
+{rocket_names}
+
 static const DWORD ntdvtx{ccage_suffix} = {ccage_vert_count};
 static TOUCHDOWNVTX tdvtx{ccage_suffix}[ntdvtx{ccage_suffix}] = {{
 	{ccage_verts}
 }};
 
-{rockets}
+const {rocket_pos_name} = {{
+    {rocket_pos}
+}};
+
+const {rocket_dir_name} = {{
+    {rocket_dir}
+}};
+
+{rocket_groups}
 
 #endif // _{defname}_H_
 """.strip() + '\n'
@@ -60,8 +70,6 @@ class OrbiterExportHeaderFile(Operator):
         template_context = {
             'defname': os.path.splitext(os.path.basename(orbiter.header_file))[0].upper()
         }
-        POS_TEMPLATE = 'const VECTOR3 {prefix}{name}_POS = {{{val}}};\n'
-        DIR_TEMPLATE = 'const VECTOR3 {prefix}{name}_DIR = {{{val}}};\n'
 
         # First get the collision cage
         vert_list = []
@@ -90,6 +98,8 @@ class OrbiterExportHeaderFile(Operator):
             all_rockets.update(bpy.data.groups[group.group].objects)
 
         rockets = []
+        rockets_pos = []
+        rockets_dir = []
         for rocket in all_rockets:
             if rocket.type == 'EMPTY':
                 name = rocket.name.upper()
@@ -100,14 +110,37 @@ class OrbiterExportHeaderFile(Operator):
                 # The empties point in the direction the rocket fires, in orbiter it's the opposite.
                 dir.negate()
 
-                str_pos = '{}, {}, {}'.format(*convert_to_orbiter(rocket.location))
-                str_dir = '{}, {}, {}'.format(*convert_to_orbiter(dir))
+                # index of this rocket
+                index = len(rockets_pos)
+                str_pos = '{{{}, {}, {}}}'.format(*convert_to_orbiter(rocket.location))
+                str_dir = '{{{}, {}, {}}}'.format(*convert_to_orbiter(dir))
+                str_rocket = '#define {prefix}{name} {index};'.format(prefix="", name=name, index=index)
 
-                rockets += '\n'
-                rockets += POS_TEMPLATE.format(name=name, val=str_pos, prefix="")
-                rockets += DIR_TEMPLATE.format(name=name, val=str_dir, prefix="")
+                rockets_pos.append(str_pos)
+                rockets_dir.append(str_dir)
 
-        template_context['rockets'] = rockets
+                rockets.append(str_rocket)
+
+        rocket_groups = ''
+        for group in orbiter.rocket_groups:
+            group_rockets = []
+            for rocket in bpy.data.groups[group.group].objects:
+                group_rockets.append(rocket.name)
+
+            rocket_groups += 'const int {group} {{\n    {rockets}\n}}\n'.format(
+                group=group.name,
+                rockets=',\n    '.join(group_rockets))
+
+        template_context['rocket_names'] = '\n'.join(rockets)
+
+        template_context['rocket_pos_name'] = 'ROCKET_POSITIONS'
+        template_context['rocket_pos'] = ',\n    '.join(rockets_pos)
+
+        template_context['rocket_dir_name'] = 'ROCKET_DIRECTIONS'
+        template_context['rocket_dir'] = ',\n    '.join(rockets_dir)
+        template_context['rocket_groups'] = rocket_groups
+
+        print(template_context)
 
         with open(bpy.path.abspath(orbiter.header_file), 'w') as f:
             f.write(_HEADER_FILE_TEMPLATE.format(**template_context))
