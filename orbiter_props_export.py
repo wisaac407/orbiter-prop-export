@@ -228,6 +228,32 @@ class OrbiterRocketGroupSelect(Operator):
         return {'FINISHED'}
 
 
+class OrbiterRocketGroupCreateNew(Operator):
+    """Create new rocket group from selected objects"""
+    bl_idname = "orbiter.rocket_group_create_new"
+    bl_label = "New Group From Selected Objects"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    name = StringProperty(
+        name="Name",
+        description="Name of rocket group",
+        default="ROCKET_GROUP"
+    )
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode == 'OBJECT' and len(context.select_objects) > 0
+
+    def execute(self, context):
+        orbiter = context.scene.orbiter
+        bpy.ops.group.create(name=self.name)
+        bpy.ops.orbiter.rocket_group_add()
+
+        group = orbiter.rocket_groups[orbiter.rocket_groups_active_index]
+        group.name = group.group = self.name
+        return {'FINISHED'}
+
+
 class OrbiterRocketGroup(PropertyGroup):
     group = StringProperty(name="Rocket Group",
                            description="Group to export as a rocket group")
@@ -263,6 +289,7 @@ class OrbiterRocketGroupSpecialsMenu(bpy.types.Menu):
 
         layout.operator("orbiter.rocket_group_select").deselect = False
         layout.operator("orbiter.rocket_group_select", text="Deselect Rocket Group").deselect = True
+        layout.operator("orbiter.rocket_group_create_new")
 
 
 class ORBITER_UL_rockets(bpy.types.UIList):
