@@ -115,7 +115,8 @@ class OrbiterExportHeaderFile(Operator):
                 index = len(rockets_pos)
                 str_pos = '{{{}, {}, {}}}'.format(*convert_to_orbiter(rocket.location))
                 str_dir = '{{{}, {}, {}}}'.format(*convert_to_orbiter(dir))
-                str_rocket = '#define {prefix}{name} {index};'.format(prefix="", name=name, index=index)
+                str_rocket = '#define {prefix}{name} {index};'.format(
+                    prefix=orbiter.rocket_prefix, name=name, index=index)
 
                 rockets_pos.append(str_pos)
                 rockets_dir.append(str_dir)
@@ -126,10 +127,10 @@ class OrbiterExportHeaderFile(Operator):
         for group in orbiter.rocket_groups:
             group_rockets = []
             for rocket in bpy.data.groups[group.group].objects:
-                group_rockets.append(rocket.name)
+                group_rockets.append(orbiter.rocket_prefix + rocket.name)
 
             rocket_groups += 'const int {group} {{\n    {rockets}\n}}\n'.format(
-                group=group.name,
+                group=orbiter.rocket_group_prefix + group.name,
                 rockets=',\n    '.join(group_rockets))
 
         template_context['rocket_names'] = '\n'.join(rockets)
@@ -263,6 +264,16 @@ class OrbiterProperties(PropertyGroup):
     rocket_groups = CollectionProperty(type=OrbiterRocketGroup)
     rocket_groups_active_index = IntProperty()
 
+    rocket_prefix = StringProperty(
+        name="Rocket Prefix",
+        description="Prefix to prepend to every rocket name"
+    )
+
+    rocket_group_prefix = StringProperty(
+        name="Rocket Group Prefix",
+        description="Prefix to prepend to every rocket group name"
+    )
+
     ccage = StringProperty(
         name="Collision Cage",
         description="Object to use as collision cage"
@@ -333,6 +344,8 @@ class OrbiterToolPanel(Panel):
 
         layout.prop(orbiter, "header_file")
         layout.prop(orbiter, "ccage_suffix")
+        layout.prop(orbiter, "rocket_prefix")
+        layout.prop(orbiter, "rocket_group_prefix")
         layout.operator("orbiter.export_header_file")
 
 
